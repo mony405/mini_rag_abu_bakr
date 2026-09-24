@@ -12,6 +12,8 @@ class DataController(BaseController):
         
     # check if the file typr and size are allowed
     def validate_uploaded_file(self, file:UploadFile):
+        print("FILE TYPE:", file.content_type)
+        print("ALLOWED TYPES:", self.app_settings.FILE_ALLOWED_TYPES)
         
         if file.content_type not in self.app_settings.FILE_ALLOWED_TYPES:
             print("the uploaded file's type is not allowed")
@@ -50,7 +52,5 @@ class DataController(BaseController):
         # remove any special characters, except underscore and .
         cleaned_file_name = re.sub(r'[^\w.]', '', cleaned_file_name.strip())
 
-       
-        
         return cleaned_file_name
         

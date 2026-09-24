@@ -1,20 +1,24 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from src.routes import base, data
+# asynccontextmanager is a Python utility that lets you create a function with two phases:
 from motor.motor_asyncio import AsyncIOMotorClient
-from helpers.config import get_settings
+from src.helpers.config import get_settings
 
-app = FastAPI()
 
-@app.lifespan("startup")
-async def startup_db_client():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     settings = get_settings()
+
+    app.state.mongo_conn = AsyncIOMotorClient(settings.MONGODB_URL)
+    app.state.db_client = app.state.mongo_conn[settings.MONGODB_DATABASE]
+
+    yield
+
+    # Shutdown
+    app.state.mongo_conn.close()
     
-    app.mongo_conn = AsyncIOMotorClient(settings.MONGODB_URL)
-    app.db_client = app.mongo_conn(settings.MONGODB_DATABASE)
-    
-@app.lifespan("shutdown")
-async def shutdown_db_client():    
-    app.mongo_conn.close()    
-    
+app = FastAPI(lifespan=lifespan)
 app.include_router(base.base_router)
 app.include_router(data.data_router)

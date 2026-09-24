@@ -1,12 +1,13 @@
-from fastapi import FastAPI,APIRouter,Depends,UploadFile,status
+from fastapi import APIRouter,Depends,UploadFile,status,Request
 from fastapi.responses import JSONResponse
-import os
 from src.helpers.config import get_settings,Settings
 from src.controllers import DataController,ProjectController,ProcessController
 import aiofiles
 from src.models import ResponseSignal
 import logging
 from .schemas.data import ProcessRequest
+from src.models.ProjectModel import ProjectModel
+
 logger = logging.getLogger('uvicorn.error')
 
 
@@ -16,8 +17,15 @@ data_router = APIRouter(
 )
 
 @data_router.post("/upload/{project_id}")
-async def upload_data(project_id: str,file:UploadFile,
+async def upload_data(request: Request, project_id: str,file:UploadFile,
                       app_settings: Settings = Depends(get_settings)):
+    
+    project_model = ProjectModel(db_client=request.app.state.db_client)
+    
+    project = await project_model.get_project_or_create_one(
+        project_id=project_id
+    )
+    
     
     # validate file
     data_controller = DataController()
@@ -29,7 +37,7 @@ async def upload_data(project_id: str,file:UploadFile,
                 "signal": result_signal
             }
         )
-    project_dir_path  = ProjectController().get_project_path(project_id=project_id)
+    # project_dir_path  = ProjectController().get_project_path(project_id=project_id)
     
     file_path, file_id = data_controller.generate_unique_filepath(
         orig_file_name=file.filename,
@@ -44,16 +52,17 @@ async def upload_data(project_id: str,file:UploadFile,
         return JSONResponse(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     content={
-                        "signal": ResponseSignal.FILE_UPLOAD_FALIED.value
+                        "signal": ResponseSignal.FILE_UPLOAD_FAILED.value
                     }
                 )
         
     return JSONResponse(
-                content={
-                    "signal": ResponseSignal.FILE_UPLOAD_SUCCESS.value,
-                    "file_id":file_id
-                }
-            )
+    content={
+        "signal": ResponseSignal.FILE_UPLOAD_SUCCESS.value,
+        "file_id": file_id,
+        "project_id": str(project.id)
+    }
+)
     
 
 @data_router.post("/process/{project_id}")
@@ -74,9 +83,9 @@ async def process_endpoint(project_id: str, process_request: ProcessRequest):
     ) 
     if file_chunks is None or len(file_chunks) == 0:
         return JSONResponse(
-            status_code=status.HTTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_400_BAD_REQUEST,
             content={
-                "signal": ResponseSignal.PROCESSING_FALIED.value
+                "signal": ResponseSignal.PROCESSING_FAILED.value
             }
         )
         

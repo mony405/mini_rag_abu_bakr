@@ -7,14 +7,14 @@ class OpenAIProvider(LLMInterface):
     def __init__(self, api_key: str, api_url: str=None,
                  default_input_max_characters: int=1000,
                  default_generation_max_output_tokens: int=1000,
-                 default_generation_temprature: float=0.1):
+                 default_generation_temperature: float=0.1):
         
         self.api_key = api_key
         self.api_url = api_url
         
         self.default_input_max_characters = default_input_max_characters
         self.default_generation_max_output_tokens = default_generation_max_output_tokens
-        self.default_generation_temprature = default_generation_temprature
+        self.default_generation_temperature = default_generation_temperature
         
         self.generation_model_id = None
         
@@ -23,13 +23,13 @@ class OpenAIProvider(LLMInterface):
         
         self.client = OpenAI(
             api_key = self.api_key,
-            api_url = self.api_url
+            base_url = self.api_url
         )
         
         self.logger = logging.getLogger(__name__)
         
     def set_generation_model(self, model_id:str):
-        self.embedding_model_id = model_id
+        self.generation_model_id = model_id
     
     def set_embedding_model(self, model_id:str, embedding_size: int):
         self.embedding_model_id = model_id
@@ -41,18 +41,20 @@ class OpenAIProvider(LLMInterface):
         if not self.client:
             self.logger.error("Openai client wasn't set")
             return None
-        if not self.embedding_model_id:
+        
+        if not self.generation_model_id:
             self.logger.error("generation model for openai wasn't set")
             return None
         
         max_output_tokens = max_output_tokens if max_output_tokens else self.default_generation_max_output_tokens
-        temperature = temperature if temperature else self.default_generation_temprature
+        temperature = temperature if temperature else self.default_generation_temperature
         
         chat_history.append(
             self.construct_prompt(
                 prompt=prompt, role=OpenAIEnums.USER.value
             )
         )
+        
         response = self.client.chat.completions.create(
             model = self.generation_model_id,
             messages = chat_history,
@@ -69,12 +71,15 @@ class OpenAIProvider(LLMInterface):
         
         
     def embed_text(self, text:str, document_type: str = None):
+        
         if not self.client:
             self.logger.error("Openai client wasn't set")
             return None
+        
         if not self.embedding_model_id:
             self.logger.error("embedding model for openai wasn't set")
             return None
+        
         
         response = self.client.embeddings.create(
             model = self.embedding_model_id,

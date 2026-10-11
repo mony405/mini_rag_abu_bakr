@@ -1,5 +1,4 @@
 from typing import List
-
 from qdrant_client import models, QdrantClient
 from ..VectorDBInterface import VectorDBInterface
 from ..VectorDBEnums import DistanceMethodEnums
@@ -53,7 +52,7 @@ class QdrantDBProvider(VectorDBInterface):
         if not self.is_collection_existed(collection_name):
             _ = self.client.create_collection(
                 collection_name=collection_name,
-                vector_config=models.VectorParams(
+                vectors_config=models.VectorParams(
                     size=embedding_size,
                     distance=self.distance_method
                 ))
@@ -88,53 +87,64 @@ class QdrantDBProvider(VectorDBInterface):
         
         return True
   
-    def insert_many(self, collection_name: str, texts: list,
-                       vectors: list, metadata: dict=None,
-                       record_ids: str=None, batch_size: int= 50):
-            
-            if metadata is None:
-                metadata = [None] * len(texts)
-                
-            if record_ids is None:
-                record_ids = [None] * len(texts)
-                
-            for i in range(0, len(texts), batch_size):
-                batch_end = i + batch_size
-                
-                batch_texts = texts[i:batch_end]
-                batch_vectors = vectors[i:batch_end]
-                batch_metadata = metadata[i:batch_end]
-                batch_records_ids = record_ids[i:batch_end]
-                
-                batch_records = [
-                    models.Record(
-                        id=batch_records_ids[x],
-                        vector=batch_vectors[x],
-                        payload={
-                            "text":batch_texts[x], "metadata": batch_metadata[x]
-                        }
-                    )
-                    for x in range(len(batch_texts))
-                ]
-                try:
-                    _ = self.client.upload_records(
-                        collection_name=collection_name,
-                        records=batch_records
-                    )
-                except Exception as e:
-                    self.logger.error(f"Error while inserting batch: {e}")
-                    return False
-                    
-                return True
+
+    def insert_many(
+        self,
+        collection_name: str,
+        texts: list,
+        vectors: list,
+        metadata: list = None,
+        record_ids: list = None,
+        batch_size: int = 50,
+    ):
+        if metadata is None:
+            metadata = [None] * len(texts)
+
+        if record_ids is None:
+            record_ids = list(range(len(texts)))
+
+        if not (
+            len(texts) == len(vectors) == len(metadata) == len(record_ids)
+        ):
+            raise ValueError(
+                "Texts, vectors, metadata, and record IDs must have equal lengths"
+            )
+
+        if not self.is_collection_existed(collection_name):
+            raise ValueError(f"Collection does not exist: {collection_name}")
+
+        for i in range(0, len(texts), batch_size):
+            end = min(i + batch_size, len(texts))
+
+            points = [
+                models.PointStruct(
+                    id=record_ids[j],
+                    vector=vectors[j],
+                    payload={
+                        "text": texts[j],
+                        "metadata": metadata[j],
+                    },
+                )
+                for j in range(i, end)
+            ]
+
+            self.client.upsert(
+                collection_name=collection_name,
+                points=points,
+                wait=True,
+            )
+
+        return True
+
             
                 
                 
     def search_by_vector(self, collection_name: str, vector: list, limit: int = 5):
-        
-        return self.client.search(
+        result = self.client.query_points(
             collection_name=collection_name,
-            query_vector=vector,
+            query=vector,
             limit=limit
         )
         
-
+        return result
+    

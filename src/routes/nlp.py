@@ -1,10 +1,11 @@
-from fastapi import FastAPI, APIRouter, status, Request
+from fastapi import  APIRouter, status, Request
 from fastapi.responses import JSONResponse
 from src.models.ProjectModel import ProjectModel
 from src.models.ChunkModel import ChunkModel
 from .schemas.nlp import PushRequest, SearchRequest
 from src.controllers import NLPController
 from src.models import ResponseSignal
+import uuid
 import logging
 
 logger = logging.getLogger('uvicorn.error')
@@ -20,6 +21,7 @@ async def index_project(request: Request, project_id: str, push_request: PushReq
     project_model = await ProjectModel.create_instance(
         db_client=request.app.state.db_client
     )
+    
     chunk_model = await ChunkModel.create_instance(
         db_client=request.app.state.db_client
     )
@@ -49,6 +51,7 @@ async def index_project(request: Request, project_id: str, push_request: PushReq
     idx = 0
     
     while has_records:
+        # 
         page_chunks = await chunk_model.get_project_chunks(project_id=project.id, page_no=page_no)
         if len(page_chunks):
             page_no += 1
@@ -59,7 +62,7 @@ async def index_project(request: Request, project_id: str, push_request: PushReq
         
         chunks_ids = list(range(idx, idx + len(page_chunks)))
         idx += len(page_chunks)
-        
+        # 
         is_inserted = nlp_controller.index_into_vector_db(
             project=project,
             chunks=page_chunks,
@@ -104,11 +107,11 @@ async def get_project_info(request: Request, project_id: str):
     collection_info = nlp_controller.get_vector_db_collection_info(project=project)
     
     return JSONResponse(
-            content={
-                "signal": ResponseSignal.INSERT_INTO_VECTORDB_SUCCESS.value,
-                "inserted_items_count":collection_info
-            }
-            )
+        content={
+            "signal": ResponseSignal.INSERT_INTO_VECTORDB_SUCCESS.value,
+            "inserted_items_count":collection_info
+        }
+        )
     
     
 @nlp_router.post("/index/search/{project_id}")

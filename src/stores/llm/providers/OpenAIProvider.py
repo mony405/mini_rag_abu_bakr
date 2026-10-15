@@ -23,9 +23,10 @@ class OpenAIProvider(LLMInterface):
         
         self.client = OpenAI(
             api_key = self.api_key,
-            base_url = self.api_url
+            base_url = self.api_url if self.api_url and len(self.api_url) else None
         )
         
+        self.enums = OpenAIEnums
         self.logger = logging.getLogger(__name__)
         
     def set_generation_model(self, model_id:str):
@@ -58,7 +59,7 @@ class OpenAIProvider(LLMInterface):
         response = self.client.chat.completions.create(
             model = self.generation_model_id,
             messages = chat_history,
-            max_tokens = max_output_tokens,
+            max_completion_tokens = max_output_tokens,
             temperature = temperature
         )
         
@@ -67,7 +68,7 @@ class OpenAIProvider(LLMInterface):
             return None
         
         
-        return response.choices[0].message["content"]
+        return response.choices[0].message.content
         
         
     def embed_text(self, text:str, document_type: str = None):

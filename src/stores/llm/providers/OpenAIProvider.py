@@ -2,6 +2,7 @@ from ..LLMInterface import LLMInterface
 from ..LLMEnums import OpenAIEnums
 from openai import OpenAI
 import logging
+import os
 
 class OpenAIProvider(LLMInterface):
     def __init__(self, api_key: str, api_url: str=None,
@@ -21,9 +22,18 @@ class OpenAIProvider(LLMInterface):
         self.embedding_model_id = None
         self.embedding_size = None
         
-        self.client = OpenAI(
-            api_key = self.api_key,
-            base_url = self.api_url if self.api_url and len(self.api_url) else None
+        # self.client = OpenAI(
+        #     api_key = self.api_key,
+        #     base_url = self.api_url if self.api_url and len(self.api_url) else None
+        # )
+        self.generation_client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.api_url if self.api_url and len(self.api_url) else None
+        )
+
+        self.embedding_client = OpenAI(
+            api_key=self.api_key,
+            # No custom base_url: use OpenAI's real API
         )
         
         self.enums = OpenAIEnums
@@ -39,7 +49,7 @@ class OpenAIProvider(LLMInterface):
     def generate_text(self, prompt: str, chat_history: list=[],
             max_output_tokens: int=None, temperature: float = None):
         
-        if not self.client:
+        if not self.generation_client:
             self.logger.error("Openai client wasn't set")
             return None
         
@@ -56,7 +66,7 @@ class OpenAIProvider(LLMInterface):
             )
         )
         
-        response = self.client.chat.completions.create(
+        response = self.generation_client.chat.completions.create(
             model = self.generation_model_id,
             messages = chat_history,
             max_completion_tokens = max_output_tokens,
@@ -73,7 +83,7 @@ class OpenAIProvider(LLMInterface):
         
     def embed_text(self, text:str, document_type: str = None):
         
-        if not self.client:
+        if not self.embedding_client:
             self.logger.error("Openai client wasn't set")
             return None
         
@@ -82,7 +92,7 @@ class OpenAIProvider(LLMInterface):
             return None
         
         
-        response = self.client.embeddings.create(
+        response = self.embedding_client.embeddings.create(
             model = self.embedding_model_id,
             input = text,
         )

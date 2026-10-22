@@ -1,7 +1,6 @@
 from typing import List
 from .BaseController import BaseController
-from src.models.db_schemes import Project
-from src.models.db_schemes.data_chunk import DataChunk
+from src.models.db_schemes import Project, DataChunk
 from src.stores.llm.LLMEnums import DocumentTypeEnum
 import json
 
@@ -100,7 +99,7 @@ class NLPController(BaseController):
         documents_prompts = "\n".join([
             self.template_parser.get("rag", "document_prompt",{
                 "doc_num": idx + 1,
-                "chunk_text": doc.text,
+                "chunk_text": self.generation_client.process_text(doc.text),
             })
             for idx, doc in enumerate(retrieved_documents)
         ])

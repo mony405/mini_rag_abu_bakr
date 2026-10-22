@@ -32,7 +32,7 @@ class AssetModel(BaseDataModel):
                 Asset.asset_type == asset_type
             )
             
-            result = await session.excute(stmt)
+            result = await session.execute(stmt)
             records = result.scalars().all()
             
         return records  

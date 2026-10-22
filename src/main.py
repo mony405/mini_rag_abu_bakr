@@ -2,18 +2,22 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from src.routes import base, data, nlp
 # asynccontextmanager is a Python utility that lets you create a function with two phases.
-from motor.motor_asyncio import AsyncIOMotorClient
 from src.helpers.config import get_settings
 from src.stores.llm.LLMProviderFactory import LLMProviderFactory
 from src.stores.vectordb.VectorDBProviderFactory import VectorDBProviderFactory
 from src.stores.llm.templates.template_parser import TemplateParser
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     settings = get_settings()
     # 
-    app.state.mongo_conn = AsyncIOMotorClient(settings.MONGODB_URL)
-    app.state.db_client = app.state.mongo_conn[settings.MONGODB_DATABASE]
+    postgres_conn = f"postgresql+asyncpg://{settings.POSTGRES_USERNAME}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_MAIN_DATABASE}"
+    app.state.db_engine = create_async_engine(postgres_conn)
+    app.state.db_client = sessionmaker(
+        app.state.db_engine,class_=AsyncSession, expire_on_commit=False
+    )
     # 
     llm_provider_factory = LLMProviderFactory(settings) # openai
     vectordb_provider_factory = VectorDBProviderFactory(settings) #qdrant
@@ -38,7 +42,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    app.state.mongo_conn.close()
+    app.state.db_engine.dispose()
     app.state.vectordb_client.disconnect()
     
 app = FastAPI(lifespan=lifespan)

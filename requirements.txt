@@ -14,3 +14,6 @@ cohere==7.1.1
 qdrant-client==1.19.1
 SQLAlchemy==2.1.5
 asyncpg==0.32.0
+alembic==1.20.0
+psycopg2==2.9.13
+psycopg==3.3.6
